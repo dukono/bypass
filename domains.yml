@@ -1,0 +1,18 @@
+config:
+  vpn_interface: gpd0
+  vpn_interfaces:
+  - gpd0
+  - tun0
+  - tun1
+  - wg0
+  - utun0
+  - ppp0
+domains:
+  chat.qwen.ai:
+    status: inactivo
+  qwen.ai:
+    status: inactivo
+  soundcloud.com:
+    status: inactivo
+  youtube.com:
+    status: inactivo

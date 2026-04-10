@@ -1,0 +1,22 @@
+[Unit]
+Description=VPN Bypass Daemon
+After=network.target network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/python3 {PROJECT_DIR}/vpn_bypass_daemon.py --debug
+Restart=always
+RestartSec=5
+User=root
+Group=root
+
+# Logging (Python maneja el logging internamente a /root/vpn_bypass_daemon.log)
+SyslogIdentifier=vpn-bypass-daemon
+
+# Variables de entorno
+Environment=PYTHONPATH={PROJECT_DIR}
+Environment=PYTHONUNBUFFERED=1
+
+[Install]
+WantedBy=multi-user.target
