@@ -1163,8 +1163,24 @@ class VPNBypassGUI:
     
     def _notify_daemon_domains_changed(self) -> None:
         """Notifica al daemon que los dominios han cambiado"""
+        logger.info("[NOTIFY] Intentando notificar al daemon sobre cambio de dominios...")
+
+        # Verificar si el daemon está corriendo primero
+        if not self.daemon_controller.is_running():
+            logger.warning("[NOTIFY] Daemon no está corriendo - mostrando alerta al usuario")
+            messagebox.showwarning(
+                "Daemon Inactivo",
+                "El daemon no está corriendo.\n\n"
+                "Los cambios se han guardado en domains.yml, pero las rutas\n"
+                "no se aplicarán hasta que inicies el daemon.\n\n"
+                "Usa el botón '▶️ Iniciar' en el menú de control del daemon."
+            )
+            return
+
         if self.daemon_controller.notify_reload():
-            logger.info("[NOTIFY] Notificación enviada al daemon")
+            logger.info("[NOTIFY] Notificación enviada al daemon exitosamente")
+        else:
+            logger.warning("[NOTIFY] No se pudo notificar al daemon")
     
     # === GESTIÓN DEL DAEMON (delegado a DaemonController) ===
 

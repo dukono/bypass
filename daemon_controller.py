@@ -106,11 +106,14 @@ def _notify_reload_signal() -> bool:
     """Notifica al daemon que recargue configuración (SIGUSR2)"""
     try:
         if not _is_daemon_running():
+            logger.warning("[DAEMON] No se puede notificar: daemon no está corriendo")
             return False
         pids = _get_daemon_pids()
         if pids:
+            logger.info(f"[DAEMON] Enviando SIGUSR2 al daemon (PID: {pids[0]})")
             os.kill(pids[0], signal.SIGUSR2)
             return True
+        logger.warning("[DAEMON] No se encontró PID del daemon")
         return False
     except Exception as e:
         logger.error(f"[DAEMON] Error enviando señal reload: {e}")

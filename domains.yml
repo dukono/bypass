@@ -9,10 +9,8 @@ config:
   - ppp0
 domains:
   chat.qwen.ai:
-    status: inactivo
+    status: activo
   qwen.ai:
-    status: inactivo
+    status: activo
   soundcloud.com:
-    status: inactivo
-  youtube.com:
     status: inactivo
