@@ -8,36 +8,40 @@ Aplicación GUI para enrutar tráfico específico fuera del túnel VPN (split tu
 
 ### 1. Instalar
 
+**Antes de instalar, actualiza tu sistema:**
 ```bash
-python3 main.py
+sudo apt update && sudo apt upgrade -y
+```
+
+**Ejecutar instalador:**
+```bash
+sudo python3 main.py
 ```
 
 **Instalación automática:**
 - Dependencias del sistema (`python3-tk`, `python3-yaml`, `dnsutils`, `iproute2`)
 - Dispatcher de NetworkManager (`/etc/NetworkManager/dispatcher.d/99-vpn-bypass`)
 - Servicio systemd (`vpn-bypass.service`) - se inicia automáticamente al arrancar
-- Launcher desktop (`~/.local/share/applications/vpn-bypass.desktop`)
 
 ### 2. Uso después de instalar
 
-**Iniciar el daemon (primera vez):**
+**Iniciar la GUI (y lanzar el daemon desde ella):**
 ```bash
-sudo systemctl start vpn-bypass.service
+sudo python3 gui.py
 ```
 
-**Iniciar la GUI:**
-```bash
-python3 gui.py
-# O desde el panel de aplicaciones: "VPN Bypass"
-```
+**En la UI:**
+- Si el daemon está inactivo, usa el botón "▶️ Iniciar" del menú desplegable
+- El botón "Reiniciar" del menú principal reinicia el servicio systemd
 
 **Control del daemon desde la UI:**
-- Botón "🔄 Reiniciar Servicio" usa `pkexec` (muestra diálogo gráfico de contraseña)
+- Botón estilo GitHub con dropdown: botón principal "Reiniciar", dropdown con "Iniciar", "Detener", "Reiniciar"
 - La UI detecta automáticamente si usa systemd o modo standalone
+- Muestra PID del daemon en la barra de estado
 
 ### 3. Dependencias verificadas
 
-- `python3-tk` - GUI (instala sin preguntar)
+- `python3-tk` - GUI (verificado primero, instala interactivamente si falta)
 - `python3-yaml` - Módulo Python para configuración
 - `dnsutils` - Comando `dig` para DNS
 - `iproute2` - Comando `ip` para rutas
@@ -49,15 +53,20 @@ python3 gui.py
 
 | Acción | Descripción |
 |--------|-------------|
-| **Añadir dominio** | Introduces `google.com` → resuelve IPs → añade rutas de bypass |
-| **Monitorear tráfico** | tcpdump cuenta paquetes/bytes por IP |
-| **Mantener rutas** | Daemon re-añade rutas si desaparecen |
-| **Estadísticas** | UI actualiza cada 5s con datos de tráfico |
+| **Añadir dominio** | Introduces dominio → resuelve IPs → añade rutas de bypass vía gateway normal |
+| **Mantener rutas** | Daemon re-añade rutas cuando la VPN se activa/desactiva |
+| **Estado VPN** | Daemon monitorea interfaz configurada, notifica a UI vía JSON |
+| **Control daemon** | Botón GitHub-style para iniciar/detener/reiniciar el servicio |
 
 ### Pestañas
 
 - **Dominios**: Lista con IPs resueltas y estado (activo/inactivo)
-- **Rutas**: Tabla de rutas activas con estadísticas
+- **Rutas**: Tabla de rutas activas con información del dominio asociado
+
+### Indicadores de estado
+
+- **Daemon**: Muestra si está activo/inactivo con PID
+- **VPN**: Muestra "Activa/Inactiva/Desconocido" según el estado reportado por el daemon
 
 ---
 
@@ -66,23 +75,25 @@ python3 gui.py
 ```
 main.py (instalador)
     ↓
-SetupManager ───► Instala: tkinter, dependencias, dispatcher, systemd service, launcher
+SetupDialog (modo auto) ───► Instala: tkinter, dnsutils, iproute2
     ↓
-vpn_bypass_gui_refactored.py ──► VPNBypassGUI (2 pestañas)
+SetupManager ───► Instala: dispatcher, systemd service
+    ↓
+gui.py ──► VPNBypassGUI (pestañas Dominios y Rutas, indicador VPN/Daemon)
     ↓
 VPNManager ──► domains.yml ──► vpn_bypass_daemon (systemd service)
     ↑                                    ↓
-    └──────── FileWatcher ←── status.json
+    └──────── FileWatcher ←── /tmp/vpn_bypass_status.json (vpn_active + domain_ips)
 ```
 
 ### Componentes
 
 | Archivo | Función |
 |---------|---------|
-| `main.py` | **Instalador**. Ejecutar una sola vez. Instala dependencias, dispatcher, servicio systemd, launcher desktop |
-| `vpn_bypass_gui_refactored.py` | **Interfaz gráfica**. Ejecutar para iniciar la GUI (tiene `if __name__ == "__main__"`). 2 pestañas, FileWatcher, actualiza tabla |
-| `setup_dialog.py` | Diálogo de dependencias (llamado por SetupManager) |
-| `setup_manager.py` | Lógica de instalación: apt, permisos, dispatcher, systemd service, launcher |
+| `main.py` | **Instalador**. Ejecutar una sola vez. Instala dependencias, dispatcher, servicio systemd |
+| `gui.py` | **Interfaz gráfica**. Ejecutar con `sudo python3 gui.py`. Control del daemon, gestión de dominios |
+| `setup_dialog.py` | Diálogo de dependencias con modo automático (instalación sin interacción) |
+| `setup_manager.py` | Lógica de instalación: dispatcher, systemd service |
 | `vpn_manager.py` | Core: DNS, rutas (ip route), tcpdump stats |
 | `vpn_bypass_daemon.py` | Proceso background (gestionado por systemd). Mantiene rutas, escucha domains.yml |
 | `daemon_controller.py` | Controla daemon: start/stop/status (pgrep + señales) |
@@ -120,10 +131,9 @@ VPNManager ──► domains.yml ──► vpn_bypass_daemon (systemd service)
 |------|-----------|---------------|
 | `{PROJECT_DIR}/domains.yml` | Lista de dominios y configuración | GUI (usuario) |
 | `/tmp/vpn_bypass_status.json` | Rutas activas y stats | Daemon (root) |
-| `~/vpn_bypass_daemon.log` | Logs del daemon | Daemon (root) |
+| `/root/vpn_bypass_daemon.log` | Logs del daemon (modo debug) | Daemon (root) |
 | `/etc/NetworkManager/dispatcher.d/99-vpn-bypass` | Script eventos red | Setup (main.py) |
 | `/etc/systemd/system/vpn-bypass.service` | Servicio systemd auto-inicio | Setup (main.py) |
-| `~/.local/share/applications/vpn-bypass.desktop` | Launcher panel aplicaciones | Setup (main.py) |
 
 ### Por qué necesita sudo
 
@@ -161,12 +171,9 @@ config:
 ### status.json
 ```json
 {
-  "timestamp": "2024-01-15T10:30:00",
-  "routes": [
-    {"dest": "142.250.80.46", "gateway": "192.168.1.1", "interface": "eth0"}
-  ],
-  "stats": {
-    "142.250.80.46": {"packets_in": 100, "bytes_in": 50000}
+  "vpn_active": true,
+  "domain_ips": {
+    "chat.qwen.ai": ["47.91.78.155", "47.254.175.31"]
   }
 }
 ```
